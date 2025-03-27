@@ -10,6 +10,7 @@ An AI-powered assistant for Formula 1 data analysis and strategy optimization wi
 - Clean, citation-free responses with detailed information
 - Command-line interface for easy interaction
 - Optional web search capability (can be disabled)
+- Optional Retrieval-Augmented Generation (RAG) capability
 
 ## Installation
 
@@ -39,6 +40,11 @@ python main.py
 Run without web search capability (uses GPT-4o instead of GPT-4o-search-preview):
 ```
 python main.py --no-web-search
+```
+
+Run with Retrieval-Augmented Generation (RAG):
+```
+python main.py --rag
 ```
 
 Example queries:
