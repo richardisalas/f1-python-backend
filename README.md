@@ -9,6 +9,7 @@ An AI-powered assistant for Formula 1 data analysis and strategy optimization wi
 - Tracks conversation context for follow-up questions
 - Clean, citation-free responses with detailed information
 - Command-line interface for easy interaction
+- Optional web search capability (can be disabled)
 
 ## Installation
 
@@ -33,6 +34,11 @@ An AI-powered assistant for Formula 1 data analysis and strategy optimization wi
 Run the assistant in interactive mode:
 ```
 python main.py
+```
+
+Run without web search capability (uses GPT-4o instead of GPT-4o-search-preview):
+```
+python main.py --no-web-search
 ```
 
 Example queries:

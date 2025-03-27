@@ -19,10 +19,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 class F1Agent:
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, web_search: bool = True):
         self.config = config or {}
         self.memory = []
-        logger.info("F1 Agent initialized")
+        self.web_search = web_search
+        logger.info(f"F1 Agent initialized with web_search={web_search}")
     
     def perceive(self, input_data: Any) -> Dict[str, Any]:
         """Process input data from the environment"""
@@ -31,46 +32,69 @@ class F1Agent:
         return {"processed_data": input_data}
     
     def think(self, processed_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Reason about the processed data and decide on action using AI with web search"""
-        logger.info("Thinking about data with AI and web search")
+        """Reason about the processed data and decide on action using AI with optional web search"""
+        logger.info(f"Thinking about data with AI {'and web search' if self.web_search else ''}")
         
         # Extract query
         data = processed_data.get("processed_data", {})
         query = data.get("query", "")
         
         try:
-            # Use the web search capability with the correct model and syntax
-            response = client.chat.completions.create(
-                model="gpt-4o-search-preview",
-                web_search_options={},
-                messages=[
-                    {
-                        "role": "user", 
-                        "content": f"As an F1 expert, please answer this question with the most up-to-date information: {query}"
-                    }
-                ],
-            )
-            
-            # Extract the response content
-            ai_response = response.choices[0].message.content
-            
-            # Extract any citations if present
-            citations = []
-            if hasattr(response.choices[0].message, 'annotations'):
-                for annotation in response.choices[0].message.annotations:
-                    if annotation.type == "url_citation":
-                        citations.append({
-                            "title": annotation.url_citation.title,
-                            "url": annotation.url_citation.url
-                        })
-            
-            # Format response as our standard format
-            result = {
-                "decision": "web_search_response",
-                "params": {"citations": citations},
-                "reasoning": "Searched the web for up-to-date F1 information",
-                "result": ai_response
-            }
+            if self.web_search:
+                # Use the web search capability with the correct model and syntax
+                response = client.chat.completions.create(
+                    model="gpt-4o-search-preview",
+                    web_search_options={},
+                    messages=[
+                        {
+                            "role": "user", 
+                            "content": f"As an F1 expert, please answer this question with the most up-to-date information: {query}"
+                        }
+                    ],
+                )
+                
+                # Extract the response content
+                ai_response = response.choices[0].message.content
+                
+                # Extract any citations if present
+                citations = []
+                if hasattr(response.choices[0].message, 'annotations'):
+                    for annotation in response.choices[0].message.annotations:
+                        if annotation.type == "url_citation":
+                            citations.append({
+                                "title": annotation.url_citation.title,
+                                "url": annotation.url_citation.url
+                            })
+                
+                # Format response as our standard format
+                result = {
+                    "decision": "web_search_response",
+                    "params": {"citations": citations},
+                    "reasoning": "Searched the web for up-to-date F1 information",
+                    "result": ai_response
+                }
+            else:
+                # Use standard model without web search
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {
+                            "role": "user", 
+                            "content": f"As an F1 expert, please answer this question: {query}"
+                        }
+                    ],
+                )
+                
+                # Extract the response content
+                ai_response = response.choices[0].message.content
+                
+                # Format response as our standard format
+                result = {
+                    "decision": "ai_response",
+                    "params": {},
+                    "reasoning": "Used AI model to answer F1 information query",
+                    "result": ai_response
+                }
             
             return result
             
@@ -196,7 +220,7 @@ def get_user_input() -> Dict[str, Any]:
         print(f"\nError during input: {e}")
         return {}
 
-def show_help():
+def show_help(web_search: bool = True):
     """Display help information"""
     print("\n=== F1 Agent Help ===")
     print("This tool helps analyze F1 race data and provide strategies.")
@@ -206,6 +230,8 @@ def show_help():
     print("3. Get strategy recommendations - Get tire and pit strategies")
     print("4. Help - Show this help information")
     print("0. Exit - Close the application")
+    print("\nFeatures:")
+    print("- Web search is " + ("ENABLED" if web_search else "DISABLED") + " (use --no-web-search to disable)")
     print("\nTips:")
     print("- You don't need to fill every prompt, just press Enter to skip")
     print("- Additional information can be added for more specific analysis")
@@ -251,6 +277,12 @@ def setup_cli_parser() -> argparse.ArgumentParser:
         help="Output file path for results",
         type=str,
         default=None
+    )
+    
+    parser.add_argument(
+        "--no-web-search",
+        help="Disable web search capability (uses gpt-4o instead of gpt-4o-search-preview)",
+        action="store_true"
     )
     
     return parser
@@ -316,7 +348,7 @@ def main():
         config = load_config(args.config)
     
     # Initialize the agent
-    agent = F1Agent(config=config)
+    agent = F1Agent(config=config, web_search=not args.no_web_search)
     
     # Batch mode
     if args.batch and args.input:
@@ -336,6 +368,7 @@ def main():
         print("F1 Assistant - Chat Interface")
         print("====================================")
         print("Welcome! Ask any questions about F1 racing, strategy, or historical data.")
+        print(f"Web search is {'ENABLED' if not args.no_web_search else 'DISABLED'}")
         print("Type 'exit' or press Ctrl+C to quit.")
         
         while True:
